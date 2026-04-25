@@ -30,6 +30,12 @@ async function getWeatherData(cityName) {
         // Step 5: Geocoding API call to resolve city name
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`;
         const geoResponse = await fetch(geoUrl);        
+        
+        // Task 4 (Step 16) integration: Explicit HTTP error check
+        if (!geoResponse.ok) {
+            throw new Error(`Geocoding failed with status: ${geoResponse.status}`);
+        }
+
         const geoData = await geoResponse.json();
 
         // Step 6: Handle empty results without throwing
@@ -38,7 +44,8 @@ async function getWeatherData(cityName) {
             return;
         }
 
-        const { latitude, longitude, name } = geoData.results[0];
+        const { latitude, longitude, name, timezone } = geoData.results[0];
+        window.currentCityTimezone = timezone;
 
         // Step 7: Call Open-Meteo with specific parameters
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,relativehumidity_2m,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
@@ -144,4 +151,69 @@ function fetchLocalTime(cityName) {
             const timestamp = new Date().toISOString();
             console.log(`[${timestamp}] TimeAPI request completed.`); [cite: 51]
         });
+}
+
+/*
+  Task 4: Error Handling & Edge Cases
+*/
+
+let debounceTimer;
+const SEARCH_DELAY = 500; // 500ms debounce delay 
+const REQUEST_TIMEOUT = 10000; // 10-second timeout 
+
+/*
+  Step 18: Debounce Implementation
+  Prevents rapid API calls while the user is typing.
+*/
+document.getElementById('cityInput').addEventListener('input', (e) => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        handleSearch(e.target.value);
+    }, SEARCH_DELAY);
+});
+
+/*
+  Step 17: Input Validation
+*/
+async function handleSearch(query) {
+    const trimmedQuery = query.trim();
+
+    // Show validation message for empty or short strings 
+    if (trimmedQuery.length > 0 && trimmedQuery.length < 2) {
+        showError("Please enter at least 2 characters.");
+        return;
+    }
+
+    if (trimmedQuery.length >= 2) {
+        await getWeatherData(trimmedQuery);
+    }
+}
+
+/*
+  Updated Fetch with AbortController (Step 19)
+*/
+async function fetchWithTimeout(url, options = {}) {
+    // Implement AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+    try {
+        const response = await fetch(url, { 
+            ...options, 
+            signal: controller.signal 
+        });
+        clearTimeout(timeoutId);
+
+        // Handle HTTP errors explicitly
+        if (!response.ok) {
+            throw new Error(`HTTP Error ${response.status}: Request failed.`);
+        }
+
+        return await response.json();
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            throw new Error("Request timed out. The server took too long to respond.");
+        }
+        throw error;
+    }
 }
