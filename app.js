@@ -16,27 +16,25 @@ const weatherLookup = {
     95: { desc: "Thunderstorm", emoji: "⛈️" }
 };
 
+let lastWeatherData = null; 
+let currentUnit = 'C';
+let searchHistory = JSON.parse(localStorage.getItem('weatherHistory')) || [];
+
 /*
   Main function to handle the request chain
 */
 async function getWeatherData(cityName) {
     const errorBanner = document.getElementById('errorBanner');
-    const errorMessage = document.getElementById('errorMessage');
-    
+    document.querySelectorAll('#cityName, #temp, #weatherDesc, #humidity, #windSpeed, #localTime')
+            .forEach(el => el.classList.add('skeleton'));
+
     // Step 9: Wrap all fetch calls in try/catch
     try {
         errorBanner.style.display = 'none';
 
         // Step 5: Geocoding API call to resolve city name
         const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityName)}&count=1&language=en&format=json`;
-        const geoResponse = await fetch(geoUrl);        
-        
-        // Task 4 (Step 16) integration: Explicit HTTP error check
-        if (!geoResponse.ok) {
-            throw new Error(`Geocoding failed with status: ${geoResponse.status}`);
-        }
-
-        const geoData = await geoResponse.json();
+        const geoData = await fetchWithTimeout(geoUrl);
 
         // Step 6: Handle empty results without throwing
         if (!geoData.results || geoData.results.length === 0) {
@@ -45,20 +43,17 @@ async function getWeatherData(cityName) {
         }
 
         const { latitude, longitude, name, timezone } = geoData.results[0];
-        window.currentCityTimezone = timezone;
 
         // Step 7: Call Open-Meteo with specific parameters
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&hourly=temperature_2m,relativehumidity_2m,windspeed_10m&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`;
+        const weatherData = await fetchWithTimeout(weatherUrl);
         
-        const weatherResponse = await fetch(weatherUrl);
-        if (!weatherResponse.ok) {
-            throw new Error(`Weather data fetch failed: ${weatherResponse.status}`);
-        }
+        lastWeatherData = weatherData; 
+        window.currentCityTimezone = timezone;
         
-        const weatherData = await weatherResponse.json();
-
         // Step 8: Success - Populate UI and remove skeletons
         displayWeather(name, weatherData);
+        updateSearchHistory(name);
 
     } catch (error) {
         // Step 9: Display error banner with retry option
@@ -71,33 +66,37 @@ async function getWeatherData(cityName) {
 */
 function displayWeather(city, data) {
     const current = data.current_weather;
-    const daily = data.daily;
-    const lookup = weatherLookup[current.weathercode] || { desc: "Unknown", emoji: "❓" };
+    const lookup = weatherLookup[current.weathercode] || { desc: "Unknown", emoji: "☁️" };
+    const unitLabel = `°${currentUnit}`;
 
-    // Populate Current Weather
-    document.getElementById('cityName').textContent = city;
-    document.getElementById('temp').textContent = `${current.temperature}°C`;
-    document.getElementById('weatherDesc').textContent = `${lookup.emoji} ${lookup.desc}`;
-    document.getElementById('humidity').textContent = `Humidity: ${data.hourly.relativehumidity_2m[0]}%`;
-    document.getElementById('windSpeed').textContent = `Wind: ${current.windspeed} km/h`;
+    // Update UI
+    $('#cityName').text(city).removeClass('skeleton');
+    $('#temp').text(`${convertTemp(current.temperature)}${unitLabel}`).removeClass('skeleton');
+    $('#weatherDesc').text(`${lookup.emoji} ${lookup.desc}`).removeClass('skeleton');
+    $('#humidity').text(`Humidity: ${data.hourly.relativehumidity_2m[0]}%`).removeClass('skeleton');
+    $('#windSpeed').text(`Wind: ${current.windspeed} km/h`).removeClass('skeleton');
 
     // Populate 7-Day Forecast (Simplified example for one card)
     const forecastRow = document.getElementById('forecastRow');
-    forecastRow.innerHTML = ''; // Clear previous data
+    forecastRow.innerHTML = '';
     
     for (let i = 0; i < 7; i++) {
-        const dayLookup = weatherLookup[daily.weathercode[i]] || { desc: "Unknown", emoji: "❓" };
-        const card = `
+        const max = convertTemp(data.daily.temperature_2m_max[i]);
+        const min = convertTemp(data.daily.temperature_2m_min[i]);
+        const dayCode = data.daily.weathercode[i];
+        const dayLookup = weatherLookup[dayCode] || { emoji: "☁️" };
+        const date = new Date(data.daily.time[i]);
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+
+        forecastRow.innerHTML += `
             <div class="forecast-card">
-                <p class="day-name">${new Date(daily.time[i]).toLocaleDateString('en-US', {weekday: 'short'})}</p>
+                <p class="day-name"><strong>${dayName}</strong></p>
                 <div class="weather-icon">${dayLookup.emoji}</div>
-                <p class="high-low">${daily.temperature_2m_max[i]}° / ${daily.temperature_2m_min[i]}°</p>
+                <p class="high-low">${Math.round(max)}${unitLabel} / ${Math.round(min)}${unitLabel}</p>
             </div>
         `;
-        forecastRow.innerHTML += card;
     }
-
-    // Remove skeleton classes to reveal the data
+    
     document.querySelectorAll('.skeleton').forEach(el => {
         el.classList.remove('skeleton');
     });
@@ -138,18 +137,18 @@ function fetchLocalTime(cityName) {
             // 12. Map the city's timezone string and display local time 
             const dateTime = new Date(data.datetime);
             const timeString = dateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            $('#localTime').text(`Local Time: ${timeString}`).removeClass('skeleton'); [cite: 51]
+            $('#localTime').text(`Local Time: ${timeString}`).removeClass('skeleton');
         })
         .fail(function() {
             // 13. Fallback to browser's local time if API fails 
             const fallbackTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            $('#localTime').text(`Local Time: ${fallbackTime} (Local)`).removeClass('skeleton'); [cite: 51]
+            $('#localTime').text(`Local Time: ${fallbackTime} (Local)`).removeClass('skeleton'); 
             console.warn("TimeAPI failed, using browser fallback.");
         })
         .always(function() {
             // 15. Log a timestamp of the completed request to the console 
             const timestamp = new Date().toISOString();
-            console.log(`[${timestamp}] TimeAPI request completed.`); [cite: 51]
+            console.log(`[${timestamp}] TimeAPI request completed.`);
         });
 }
 
@@ -197,7 +196,6 @@ async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-    try {
         const response = await fetch(url, { 
             ...options, 
             signal: controller.signal 
@@ -210,22 +208,11 @@ async function fetchWithTimeout(url, options = {}) {
         }
 
         return await response.json();
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            throw new Error("Request timed out. The server took too long to respond.");
-        }
-        throw error;
-    }
 }
 
 /*
   Bonus Challenge
-*/
 
-let lastWeatherData = null; // Store data for unit conversion
-let searchHistory = JSON.parse(localStorage.getItem('weatherHistory')) || [];
-
-/*
   Implement Recent Searches History
 */
 function updateSearchHistory(city) {
@@ -254,23 +241,27 @@ function renderHistoryChips() {
     });
 }
 
+function showError(msg) {
+    document.getElementById('errorMessage').textContent = msg;
+    document.getElementById('errorBanner').style.display = 'block';
+}
+
 /*
   Unit Conversion (C <-> F)
   Conversion formula: (C * 9/5) + 32
 */
-let currentUnit = 'C';
+
+function convertTemp(temp) {
+    return currentUnit === 'F' ? (temp * 9/5 + 32).toFixed(1) : temp;
+}
 
 function toggleUnits() {
-    if (!lastWeatherData) return;
+   if (!lastWeatherData) return;
     
-    currentUnit = currentUnit === 'C' ? 'F' : 'C';
-    const tempElement = document.getElementById('temp');
-    const baseTemp = lastWeatherData.current_weather.temperature;
-
-    if (currentUnit === 'F') {
-        const fahrenheit = (baseTemp * 9/5) + 32;
-        tempElement.textContent = `${fahrenheit.toFixed(1)}°F`;
-    } else {
-        tempElement.textContent = `${baseTemp}°C`;
-    }
+    currentUnit = document.getElementById('unitToggle').checked ? 'F' : 'C';
+    
+    const activeCity = document.getElementById('cityName').textContent;
+    displayWeather(activeCity, lastWeatherData);
 }
+
+renderHistoryChips();
