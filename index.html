@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WeatherNow - Real-Time Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="container">
+        <div class="search-container">
+            <input type="text" id="cityInput" placeholder="Enter city name...">
+            <button id="searchBtn">Search</button>
+        </div>
+
+        <div id="errorBanner" class="error-banner" style="display: none;">
+            <p id="errorMessage"></p>
+            <button onclick="location.reload()">Retry</button>
+        </div>
+
+        <div class="current-weather-card">
+            <h2 id="cityName" class="skeleton">City Name</h2>
+            <div class="weather-info">
+                <p id="localTime" class="skeleton">Local Time: --:--</p>
+                <h1 id="temp" class="skeleton">--°C</h1>
+                <p id="weatherDesc" class="skeleton">Weather Description</p>
+                <div class="details">
+                    <span id="humidity" class="skeleton">Humidity: --%</span>
+                    <span id="windSpeed" class="skeleton">Wind: -- km/h</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="forecast-row" id="forecastRow">
+            <div class="forecast-card">
+                <p class="day-name skeleton">Day</p>
+                <div class="weather-icon skeleton">☀️</div>
+                <p class="high-low skeleton">--° / --°</p>
+            </div>
+            </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
