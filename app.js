@@ -217,3 +217,60 @@ async function fetchWithTimeout(url, options = {}) {
         throw error;
     }
 }
+
+/*
+  Bonus Challenge
+*/
+
+let lastWeatherData = null; // Store data for unit conversion
+let searchHistory = JSON.parse(localStorage.getItem('weatherHistory')) || [];
+
+/*
+  Implement Recent Searches History
+*/
+function updateSearchHistory(city) {
+    // Remove if exists, then add to front to keep it unique and recent
+    searchHistory = searchHistory.filter(item => item.toLowerCase() !== city.toLowerCase());
+    searchHistory.unshift(city);
+    
+    // Limit to last 5 searches
+    if (searchHistory.length > 5) searchHistory.pop();
+    
+    localStorage.setItem('weatherHistory', JSON.stringify(searchHistory));
+    renderHistoryChips();
+}
+
+function renderHistoryChips() {
+    const historyContainer = document.getElementById('historyChips');
+    historyContainer.innerHTML = '';
+    
+    searchHistory.forEach(city => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.textContent = city;
+        // Click chip to reload weather
+        chip.onclick = () => getWeatherData(city);
+        historyContainer.appendChild(chip);
+    });
+}
+
+/*
+  Unit Conversion (C <-> F)
+  Conversion formula: (C * 9/5) + 32
+*/
+let currentUnit = 'C';
+
+function toggleUnits() {
+    if (!lastWeatherData) return;
+    
+    currentUnit = currentUnit === 'C' ? 'F' : 'C';
+    const tempElement = document.getElementById('temp');
+    const baseTemp = lastWeatherData.current_weather.temperature;
+
+    if (currentUnit === 'F') {
+        const fahrenheit = (baseTemp * 9/5) + 32;
+        tempElement.textContent = `${fahrenheit.toFixed(1)}°F`;
+    } else {
+        tempElement.textContent = `${baseTemp}°C`;
+    }
+}

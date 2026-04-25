@@ -6,6 +6,7 @@
     --error-red: #ff4d4d;
     --primary-btn: #007bff;
     --text-main: #333333;
+    --chip-hover: #d0d0d0;
 
     --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
@@ -62,4 +63,24 @@ button {
     border-radius: 4px;
     margin-bottom: 15px;
     text-align: center;
+}
+
+.history-chips {
+    margin-bottom: 15px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.chip {
+    background: var(--skeleton-base);
+    padding: 5px 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.chip:hover {
+    background: var(--chip-hover);
 }
