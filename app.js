@@ -94,6 +94,12 @@ function displayWeather(city, data) {
     document.querySelectorAll('.skeleton').forEach(el => {
         el.classList.remove('skeleton');
     });
+
+    // Store timezone from Open-Meteo for Task 3
+    window.currentCityTimezone = data.timezone; 
+
+    // Trigger Task 3 
+    fetchLocalTime(city);
 }
 
 function showError(msg) {
@@ -108,3 +114,34 @@ document.getElementById('searchBtn').addEventListener('click', () => {
     const city = document.getElementById('cityInput').value;
     if (city) getWeatherData(city);
 });
+
+/*
+  Task 3: jQuery AJAX for Local Time
+*/
+function fetchLocalTime(cityName) {
+    // 11. Use $.getJSON to call World TimeAPI 
+    // Note: World TimeAPI typically uses timezone strings. 
+    // We can use the timezone string returned by the Open-Meteo API in Task 2.
+    const timezone = window.currentCityTimezone || "UTC"; 
+    const timeUrl = `https://worldtimeapi.org/api/timezone/${timezone}`;
+
+    // 14. Use jQuery's .done(), .fail(), and .always() chaining methods 
+    $.getJSON(timeUrl)
+        .done(function(data) {
+            // 12. Map the city's timezone string and display local time 
+            const dateTime = new Date(data.datetime);
+            const timeString = dateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            $('#localTime').text(`Local Time: ${timeString}`).removeClass('skeleton'); [cite: 51]
+        })
+        .fail(function() {
+            // 13. Fallback to browser's local time if API fails 
+            const fallbackTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            $('#localTime').text(`Local Time: ${fallbackTime} (Local)`).removeClass('skeleton'); [cite: 51]
+            console.warn("TimeAPI failed, using browser fallback.");
+        })
+        .always(function() {
+            // 15. Log a timestamp of the completed request to the console 
+            const timestamp = new Date().toISOString();
+            console.log(`[${timestamp}] TimeAPI request completed.`); [cite: 51]
+        });
+}
